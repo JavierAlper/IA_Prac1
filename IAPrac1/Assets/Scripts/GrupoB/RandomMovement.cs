@@ -24,8 +24,11 @@
 
 using System;
 using System.Collections.Generic;
+using System.IO;
+using System.Linq;
 using Navigation.Interfaces;
 using Navigation.World;
+using UnityEngine;
 
 namespace grupoB
 {
@@ -39,12 +42,14 @@ namespace grupoB
             Down,
             Left
         }
-        
+
         private WorldInfo _world;
         private Random _random;
         private Directions _currentDirection = Directions.None;
         private int stepCount = 0;
-        
+        private List<CellInfo> pathCells;
+        private List<CellInfo> visitedCell;
+
         public void Initialize(WorldInfo worldInfo)
         {
             _world = worldInfo;
@@ -53,16 +58,23 @@ namespace grupoB
 
         public CellInfo[] GetPath(CellInfo startNode, CellInfo targetNode)
         {
+            pathCells.Add(startNode);
+
+            while (pathCells.Any())
+            {
+
+            }
+
             CellInfo[] path = new CellInfo[1];
-            
-            if(_currentDirection == Directions.None || stepCount==0)
+
+            if (_currentDirection == Directions.None || stepCount == 0)
             {
                 _currentDirection = GetRandomDirection();
                 stepCount = UnityEngine.Random.Range(3, 8);
             }
-            
+
             CellInfo nextCell = GetNeighbour(startNode, _currentDirection);
-            while(!nextCell.Walkable)
+            while (!nextCell.Walkable)
             {
                 _currentDirection = GetRandomDirection();
                 nextCell = GetNeighbour(startNode, _currentDirection);
@@ -73,12 +85,12 @@ namespace grupoB
             path[0] = nextCell;
             return path;
         }
-        
+
         public CellInfo GetNeighbour(CellInfo current, Directions direction)
         {
             CellInfo neighbour;
-            
-            switch(direction)
+
+            switch (direction)
             {
                 case Directions.Up:
                     neighbour = _world[current.x, current.y - 1];
@@ -109,10 +121,10 @@ namespace grupoB
 
             return neighbour;
         }
-        
+
         public Directions GetRandomDirection()
         {
-            float randomFloat = (float) _random.NextDouble() * 100f;
+            float randomFloat = (float)_random.NextDouble() * 100f;
 
             if (randomFloat < 25f)
             {
@@ -129,6 +141,13 @@ namespace grupoB
             {
                 return Directions.Left;
             }
+        }
+
+
+        public int heuristic(CellInfo current, CellInfo obj)
+        {
+            //return Mathf.Sqrt(Mathf.Pow(x - other.x, 2) + Mathf.Pow(y - other.y, 2));
+            return 0;
         }
     }
 }
