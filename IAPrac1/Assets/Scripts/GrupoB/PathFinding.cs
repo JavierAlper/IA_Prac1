@@ -24,7 +24,6 @@
 
 using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
 using Navigation.Interfaces;
 using Navigation.World;
@@ -44,25 +43,59 @@ namespace grupoB
         }
 
         private WorldInfo _world;
-        private Random _random;
+        private System.Random _random;
         private Directions _currentDirection = Directions.None;
         private int stepCount = 0;
-        private List<CellInfo> pathCells;
-        private List<CellInfo> visitedCell;
+        private List<Node> openList;
+        private List<Node> visitedNode;
 
         public void Initialize(WorldInfo worldInfo)
         {
             _world = worldInfo;
-            _random = new Random();
+            _random = new System.Random();
         }
 
         public CellInfo[] GetPath(CellInfo startNode, CellInfo targetNode)
         {
-            pathCells.Add(startNode);
+            Node initNode = new Node(startNode, heuristic(startNode,targetNode));
+            openList.Add(initNode); //introducir en la openlist el nodo inicial
 
-            while (pathCells.Any())
+            while (openList.Any()) //hacer mientras la openList no este vacia
             {
+                //1. Coger y eliminar el nodo con menos coste de la open list 
+                Node currentNode = openList.OrderBy(node => node.cost).FirstOrDefault(); //(se ordena la openList por coste y se coge el primer nodo)
+                if(currentNode != null) openList.Remove(currentNode);
 
+                //2. Si este nodo es igual al objetivo, reconstruimos el camino desde este nodo (fin if)
+                if(currentNode.NodeCellInfo == targetNode) return ReconstructPath(currentNode);
+
+                //3.Si no esta en la lista de visitados, se introduce
+                if (!visitedNode.Contains(currentNode))
+                {
+                    visitedNode.Add(currentNode);
+
+                    //4. para todos los sucesores del nodo se calcula su coste (for) (comprobar que el nodo sea accesible Walkable)
+                    //creamos array con los vecinos de currentNode
+                    CellInfo[] successors = new CellInfo[] { GetNeighbour(currentNode.NodeCellInfo, Directions.Up), GetNeighbour(currentNode.NodeCellInfo, Directions.Down), GetNeighbour(currentNode.NodeCellInfo, Directions.Left), GetNeighbour(currentNode.NodeCellInfo, Directions.Right) };
+                    foreach(CellInfo successor in successors)
+                    {
+                        //5. si no esta en la lista de visitados y es Walkable se introduce en la openList
+                        Node successorNode = new Node(successor); //!!!!!!!!!!!!!!!!!!!!!!!!!! falta calcular el coste que no se como hacer g(N)
+                        if (!visitedNode.Contains(successorNode) && successorNode.NodeCellInfo.Walkable)
+                        {
+                            openList.Add(successorNode);
+
+                            //6. se le pone como predecesor el nodo actual
+                            successorNode.father = currentNode;
+
+                            //7.calcular el coste del nodo
+
+                        }
+
+                    }
+
+                }
+               
             }
 
             CellInfo[] path = new CellInfo[1];
@@ -143,11 +176,16 @@ namespace grupoB
             }
         }
 
-
+        public CellInfo[] ReconstructPath(Node finalNode)
+        {
+            CellInfo[] path = new CellInfo[1];
+            return path;
+        }
         public int heuristic(CellInfo current, CellInfo obj)
         {
-            //return Mathf.Sqrt(Mathf.Pow(x - other.x, 2) + Mathf.Pow(y - other.y, 2));
-            return 0;
+            //Manhattan Distance
+            return Mathf.Abs(current.x - obj.x) + Mathf.Abs(current.y - obj.y);
+            
         }
     }
 }
