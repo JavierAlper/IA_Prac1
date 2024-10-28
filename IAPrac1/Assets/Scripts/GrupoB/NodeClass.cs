@@ -21,6 +21,14 @@ namespace grupoB
             this.father = father;
         }
 
+        public Node(CellInfo nodeCellInfo, int cost, int pathCost)
+        {
+            NodeCellInfo = nodeCellInfo;
+            this.totalCost = cost;
+            this.pathCost = pathCost;
+            this.father = null;
+        }
+
         public Node(CellInfo nodeCellInfo, int cost)
         {
             NodeCellInfo = nodeCellInfo;

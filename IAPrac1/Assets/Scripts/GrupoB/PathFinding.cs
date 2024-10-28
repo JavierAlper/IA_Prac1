@@ -27,6 +27,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Navigation.Interfaces;
 using Navigation.World;
+using UnityEditor.Experimental.GraphView;
 using UnityEngine;
 
 namespace grupoB
@@ -53,19 +54,23 @@ namespace grupoB
         {
             _world = worldInfo;
             _random = new System.Random();
+            openList = new List<Node>();
+            visitedNode = new List<Node>();
         }
 
         public CellInfo[] GetPath(CellInfo startNode, CellInfo targetNode)
         {
             Debug.Log("primeraPatata");
-            //openList = new List<Node>();
-            //visitedNode = new List<Node>();
-            Node initNode = new Node(startNode, Heuristic(startNode,targetNode));
+
+            Node initNode = new Node(startNode, Heuristic(startNode,targetNode),0);
             Debug.Log("segundaPatata" + initNode.totalCost);
             openList.Add(initNode); //introducir en la openlist el nodo inicial
             Debug.Log("patata");
-            while (openList.Any()) //hacer mientras la openList no este vacia
+            int maxIterations = 8000;//para que no pete por bucle infinito
+            int currentIteration = 0;
+            while (openList.Any())// && currentIteration < maxIterations) //hacer mientras la openList no este vacia
             {
+                currentIteration++;
                 Debug.Log("patataEntro");
                 //1. Coger y eliminar el nodo con menos coste de la open list 
                 Node currentNode = openList.OrderBy(node => node.totalCost).FirstOrDefault(); //(se ordena la openList por coste y se coge el primer nodo)
@@ -88,14 +93,28 @@ namespace grupoB
                         Node successorNode = new Node(successor); //!!!!!!!!!!!!!!!!!!!!!!!!!! falta calcular el coste que no se como hacer g(N)
                         if (!visitedNode.Contains(successorNode) && successorNode.NodeCellInfo.Walkable)
                         {
-                            openList.Add(successorNode);
 
                             //6. se le pone como predecesor el nodo actual
                             successorNode.father = currentNode;
 
-                            //7.calcular el coste del nodo
+                            //7.calcular el coste del nodo y añadimos a la openList
                             successorNode.pathCost = successorNode.father.pathCost + 1; //calculamos coste acumulado
                             successorNode.totalCost = successorNode.pathCost + Heuristic(successorNode.NodeCellInfo, targetNode);//le sumamos al coste acumulado la heuristica
+
+                            Node existingNode = openList.FirstOrDefault(node => node.NodeCellInfo == successorNode.NodeCellInfo);//miramos si ya esta el nodo en la openList
+                            if(existingNode == null)
+                            {
+                                openList.Add(successorNode);//si no esta se introduce
+                            }
+                            else if(existingNode.totalCost > successorNode.totalCost)// si esta y tiene mayor coste se actualiza con el nuevo coste
+                            {
+                                existingNode.totalCost = successorNode.totalCost;
+                                existingNode.pathCost = successorNode.pathCost;
+                                existingNode.father = currentNode;
+                            }
+                           
+
+                           
                         }
 
                     }
@@ -104,7 +123,8 @@ namespace grupoB
                
             }
             Debug.Log("patataNoEntro");
-            return null;
+            CellInfo[] nullPath = new CellInfo[1];
+            return nullPath;
             /*CellInfo[] path = new CellInfo[1];
 
             if (_currentDirection == Directions.None || stepCount == 0)
