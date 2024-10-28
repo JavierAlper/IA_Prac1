@@ -31,7 +31,7 @@ using UnityEngine;
 
 namespace grupoB
 {
-    public class RandomMovement : INavigationAlgorithm
+    public class PathFinding : INavigationAlgorithm
     {
         public enum Directions
         {
@@ -57,13 +57,18 @@ namespace grupoB
 
         public CellInfo[] GetPath(CellInfo startNode, CellInfo targetNode)
         {
-            Node initNode = new Node(startNode, heuristic(startNode,targetNode));
+            Debug.Log("primeraPatata");
+            //openList = new List<Node>();
+            //visitedNode = new List<Node>();
+            Node initNode = new Node(startNode, Heuristic(startNode,targetNode));
+            Debug.Log("segundaPatata" + initNode.totalCost);
             openList.Add(initNode); //introducir en la openlist el nodo inicial
-
+            Debug.Log("patata");
             while (openList.Any()) //hacer mientras la openList no este vacia
             {
+                Debug.Log("patataEntro");
                 //1. Coger y eliminar el nodo con menos coste de la open list 
-                Node currentNode = openList.OrderBy(node => node.cost).FirstOrDefault(); //(se ordena la openList por coste y se coge el primer nodo)
+                Node currentNode = openList.OrderBy(node => node.totalCost).FirstOrDefault(); //(se ordena la openList por coste y se coge el primer nodo)
                 if(currentNode != null) openList.Remove(currentNode);
 
                 //2. Si este nodo es igual al objetivo, reconstruimos el camino desde este nodo (fin if)
@@ -89,7 +94,8 @@ namespace grupoB
                             successorNode.father = currentNode;
 
                             //7.calcular el coste del nodo
-
+                            successorNode.pathCost = successorNode.father.pathCost + 1; //calculamos coste acumulado
+                            successorNode.totalCost = successorNode.pathCost + Heuristic(successorNode.NodeCellInfo, targetNode);//le sumamos al coste acumulado la heuristica
                         }
 
                     }
@@ -97,8 +103,9 @@ namespace grupoB
                 }
                
             }
-
-            CellInfo[] path = new CellInfo[1];
+            Debug.Log("patataNoEntro");
+            return null;
+            /*CellInfo[] path = new CellInfo[1];
 
             if (_currentDirection == Directions.None || stepCount == 0)
             {
@@ -116,7 +123,7 @@ namespace grupoB
 
             stepCount--;
             path[0] = nextCell;
-            return path;
+            return path;*/
         }
 
         public CellInfo GetNeighbour(CellInfo current, Directions direction)
@@ -178,10 +185,18 @@ namespace grupoB
 
         public CellInfo[] ReconstructPath(Node finalNode)
         {
-            CellInfo[] path = new CellInfo[1];
-            return path;
+            Node currentNode = finalNode;
+            List<CellInfo> cellPath = new List<CellInfo>();//creamos lista de cellInfo
+            while(currentNode.father != null)//hasta que no tenga padre (hasta que no lleguemos al nodo inicio del camino)
+            {
+                cellPath.Add(currentNode.NodeCellInfo);//insertamos en la lista
+                currentNode = currentNode.father;//vamos al nodo padre
+
+            }
+            cellPath.Add(currentNode.NodeCellInfo);//insertamos el nodo de inicio
+            return cellPath.ToArray();//lo devolvemos en un array
         }
-        public int heuristic(CellInfo current, CellInfo obj)
+        public int Heuristic(CellInfo current, CellInfo obj)
         {
             //Manhattan Distance
             return Mathf.Abs(current.x - obj.x) + Mathf.Abs(current.y - obj.y);
