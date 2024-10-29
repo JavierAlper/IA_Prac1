@@ -6,43 +6,30 @@ using UnityEngine;
 
 namespace grupoB
 {
-    public class Node : MonoBehaviour
+    public class Node
     {
-        public CellInfo NodeCellInfo { get; private set; }
-        public int totalCost { get; set; }
-        public int pathCost { get; set; }
-        public Node father { get; set; }
+        public CellInfo Cell { get; } //celda del nodo
+        public Node Parent { get; } //nodo padre de el actual en la ruta
+        public int GCost { get; } // Coste acumulado desde el inicio hasta este nodo
+        public int HCost { get; } // Heurística hasta el objetivo (distancia de Manhattan)
+        public int FCost => GCost + HCost; // GCost + HCost (coste total del nodo)
 
-        public Node(CellInfo nodeCellInfo, int cost, int pathCost, Node father)
+        // Constructor para el nodo inicial
+        public Node(CellInfo cell, int gCost, int hCost)
         {
-            NodeCellInfo = nodeCellInfo;
-            this.totalCost = cost;
-            this.pathCost = pathCost;
-            this.father = father;
+            Cell = cell;
+            GCost = gCost;
+            HCost = hCost;
+            Parent = null; //el inicial no tendrá nodo padre
         }
 
-        public Node(CellInfo nodeCellInfo, int cost, int pathCost)
+        // Constructor para demás nodos
+        public Node(CellInfo cell, int gCost, int hCost, Node parent)
         {
-            NodeCellInfo = nodeCellInfo;
-            this.totalCost = cost;
-            this.pathCost = pathCost;
-            this.father = null;
-        }
-
-        public Node(CellInfo nodeCellInfo, int cost)
-        {
-            NodeCellInfo = nodeCellInfo;
-            this.totalCost = cost;
-            this.pathCost = 0;
-            this.father = null;
-        }
-
-        public Node(CellInfo nodeCellInfo)
-        {
-            NodeCellInfo = nodeCellInfo;
-            this.totalCost = 0;
-            this.pathCost = 0;
-            this.father = null;
+            Cell = cell;
+            GCost = gCost;
+            HCost = hCost;
+            Parent = parent;
         }
     }
 }

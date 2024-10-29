@@ -31,52 +31,53 @@ namespace grupoB
 {
     public class BaseSearchAgent : INavigationAgent
     {
-        public CellInfo CurrentObjective { get; private set; }
-        public Vector3 CurrentDestination { get; private set; }
-        public int NumberOfDestinations { get; private set; }
+        public CellInfo CurrentObjective { get; private set; } //Objetivo actual (salida)
+        public Vector3 CurrentDestination { get; private set; } //Coordenadas del iobj actual
+        public int NumberOfDestinations { get; private set; } //nº destinos a alcanzar (para mas adelante)
 
         private WorldInfo _worldInfo;
-        private INavigationAlgorithm _navigationAlgorithm;
+        private INavigationAlgorithm _navigationAlgorithm; //para calcular las rutas
+        private CellInfo[] _objectives; //objetivos
+        private Queue<CellInfo> _path; //cola de ruta hasta el obj actual 
 
-        private CellInfo[] _objectives;
-        private Queue<CellInfo> _path;
-        
         public void Initialize(WorldInfo worldInfo, INavigationAlgorithm navigationAlgorithm)
         {
             _worldInfo = worldInfo;
             _navigationAlgorithm = navigationAlgorithm;
+            _navigationAlgorithm.Initialize(worldInfo); 
         }
 
         public Vector3? GetNextDestination(Vector3 position)
         {
+            // Si no se han cargado los objetivos, se inicializan y establece el objetivo actual
             if (_objectives == null)
             {
-                _objectives = GetDestinations();
+                _objectives = GetDestinations(); // Obtiene los destinos (por ahora la salida)
                 CurrentObjective = _objectives[_objectives.Length - 1];
-                NumberOfDestinations = _objectives.Length;
+                NumberOfDestinations = _objectives.Length; 
             }
-            
-            if (_path == null || _path.Count==0)
+            // Si no existe una ruta calculada o la actual se ha agotado, se recalcula
+            if (_path == null || _path.Count == 0)
             {
                 CellInfo currentPosition = _worldInfo.FromVector3(position);
-                CellInfo[] path = _navigationAlgorithm.GetPath(currentPosition, CurrentObjective);
-                _path = new Queue<CellInfo>(path); 
+                CellInfo[] path = _navigationAlgorithm.GetPath(currentPosition, CurrentObjective); //calcula la ruta
+                _path = new Queue<CellInfo>(path); // Carga la ruta calculada en una cola
             }
-
+            // Si la ruta tiene puntos, se establece el siguiente destino
             if (_path.Count > 0)
             {
-                CellInfo destination = _path.Dequeue();
+                CellInfo destination = _path.Dequeue(); // siguiente punto en la ruta
                 CurrentDestination = _worldInfo.ToWorldPosition(destination);
             }
-            
-            return CurrentDestination;
+
+            return CurrentDestination; //devuelve el siguiente destino
         }
 
+        //Obtener destinos 
         private CellInfo[] GetDestinations()
         {
-            List<CellInfo> targets = new List<CellInfo>();
-            targets.Add(_worldInfo.Exit);
-            return targets.ToArray();
+            var targets = new List<CellInfo> { _worldInfo.Exit };
+            return targets.ToArray(); //array de objetivos
         }
     }
 }
