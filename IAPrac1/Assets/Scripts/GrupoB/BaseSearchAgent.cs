@@ -23,6 +23,7 @@
 #endregion
 
 using System.Collections.Generic;
+using System.Linq;
 using Navigation.Interfaces;
 using Navigation.World;
 using UnityEngine;
@@ -31,53 +32,98 @@ namespace grupoB
 {
     public class BaseSearchAgent : INavigationAgent
     {
-        public CellInfo CurrentObjective { get; private set; } //Objetivo actual (salida)
-        public Vector3 CurrentDestination { get; private set; } //Coordenadas del iobj actual
-        public int NumberOfDestinations { get; private set; } //nº destinos a alcanzar (para mas adelante)
+        public CellInfo CurrentObjective { get; private set; } // Objetivo actual
+        public Vector3 CurrentDestination { get; private set; } // Coordenadas del objetivo actual
+        public int NumberOfDestinations { get; private set; } // Número de destinos a alcanzar
 
         private WorldInfo _worldInfo;
-        private INavigationAlgorithm _navigationAlgorithm; //para calcular las rutas
-        private CellInfo[] _objectives; //objetivos
-        private Queue<CellInfo> _path; //cola de ruta hasta el obj actual 
+        private INavigationAlgorithm _navigationAlgorithm; // Para calcular las rutas
+        private Queue<CellInfo> _path; // Cola de ruta hasta el objetivo actual 
+        private List<CellInfo> _objectives; // Lista de objetivos (tesoros y salida)
 
         public void Initialize(WorldInfo worldInfo, INavigationAlgorithm navigationAlgorithm)
         {
             _worldInfo = worldInfo;
             _navigationAlgorithm = navigationAlgorithm;
-            _navigationAlgorithm.Initialize(worldInfo); 
+            _navigationAlgorithm.Initialize(worldInfo);
+            _objectives = new List<CellInfo>(GetDestinations()); // Cargar los objetivos en la lista
+            NumberOfDestinations = _objectives.Count; // Cantidad de objetivos
         }
 
         public Vector3? GetNextDestination(Vector3 position)
         {
-            // Si no se han cargado los objetivos, se inicializan y establece el objetivo actual
-            if (_objectives == null)
+            CellInfo currentPosition = _worldInfo.FromVector3(position);
+
+            // Establecer el primer objetivo al inicio si no está asignado
+            if (CurrentObjective == null)
             {
-                _objectives = GetDestinations(); // Obtiene los destinos (por ahora la salida)
-                CurrentObjective = _objectives[_objectives.Length - 1];
-                NumberOfDestinations = _objectives.Length; 
+                SetClosestObjective(currentPosition); // Seleccionar el objetivo más cercano
             }
-            // Si no existe una ruta calculada o la actual se ha agotado, se recalcula
+
+            // Verificar si se ha llegado al objetivo actual
+            if (CurrentObjective != null && currentPosition == CurrentObjective)
+            {
+                _objectives.Remove(CurrentObjective); // Eliminar el objetivo alcanzado
+
+                if (_objectives.Count > 0)
+                {
+                    SetClosestObjective(currentPosition); // Cambiar al siguiente objetivo más cercano
+                }
+                else
+                {
+                    // No hay más cofres, ahora podemos ir a la salida
+                    CurrentObjective = _worldInfo.Exit; // Establecer la salida como el nuevo objetivo
+                }
+                _path = null; // Limpiar la ruta para recalcularla
+            }
+
+            // Si no existe una ruta calculada o la actual se ha agotado, se recalcula hacia el objetivo actual
             if (_path == null || _path.Count == 0)
             {
-                CellInfo currentPosition = _worldInfo.FromVector3(position);
-                CellInfo[] path = _navigationAlgorithm.GetPath(currentPosition, CurrentObjective); //calcula la ruta
-                _path = new Queue<CellInfo>(path); // Carga la ruta calculada en una cola
+                CellInfo[] path = _navigationAlgorithm.GetPath(currentPosition, CurrentObjective);
+                if (path == null) return null; // Si no hay ruta disponible, retorna null
+                _path = new Queue<CellInfo>(path); // Cargar la nueva ruta en la cola
             }
+
             // Si la ruta tiene puntos, se establece el siguiente destino
             if (_path.Count > 0)
             {
-                CellInfo destination = _path.Dequeue(); // siguiente punto en la ruta
+                CellInfo destination = _path.Dequeue(); // Siguiente punto en la ruta
                 CurrentDestination = _worldInfo.ToWorldPosition(destination);
             }
 
-            return CurrentDestination; //devuelve el siguiente destino
+            return CurrentDestination; // Devuelve el siguiente destino
         }
 
-        //Obtener destinos 
+        // Método para calcular el objetivo más cercano
+        private void SetClosestObjective(CellInfo currentPosition)
+        {
+            float minDistance = float.MaxValue;
+            CellInfo closestObjective = null;
+
+            foreach (var objective in _objectives)
+            {
+                float distance = CalculateEuclideanDistance(currentPosition, objective);
+                if (distance < minDistance)
+                {
+                    minDistance = distance;
+                    closestObjective = objective;
+                }
+            }
+            CurrentObjective = closestObjective; // Establece el objetivo más cercano
+        }
+
+        // Método para calcular la distancia 
+        private float CalculateEuclideanDistance(CellInfo a, CellInfo b)
+        {
+            return Mathf.Sqrt(Mathf.Pow(a.x - b.x, 2) + Mathf.Pow(a.y - b.y, 2));
+        }
+
+        // Obtener destinos incluyendo todos los cofres antes de la salida
         private CellInfo[] GetDestinations()
         {
-            var targets = new List<CellInfo> { _worldInfo.Exit };
-            return targets.ToArray(); //array de objetivos
+            List<CellInfo> targets = new List<CellInfo>(_worldInfo.Targets); // Añade todos los cofres
+            return targets.ToArray(); // Devuelve un array de objetivos
         }
     }
 }
