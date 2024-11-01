@@ -76,7 +76,10 @@ namespace Components
                 CellInfo targetCell = _navigationAlgorithm.GetNeighbour(currentCell, _currentDirection);
                 _currentDestination = WorldManager.Instance.WorldInfo.ToWorldPosition(targetCell);
                 
-                if(!targetCell.Walkable)
+                if(!targetCell.Walkable  || 
+                   targetCell.Type == CellInfo.CellType.Treasure || 
+                   targetCell.Type == CellInfo.CellType.Exit ||
+                   targetCell.Type == CellInfo.CellType.Enemy)
                 {
                     // Debug.Log($"{gameObject.name}:Enemy destination reached, but cell {targetCell} is not walkable");
                     _currentDirection = RandomMovement.Directions.None;
