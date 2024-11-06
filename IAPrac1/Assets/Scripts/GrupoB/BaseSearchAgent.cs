@@ -34,7 +34,7 @@ namespace grupoB
     {
         public CellInfo CurrentObjective { get; private set; } // Objetivo actual
         public Vector3 CurrentDestination { get; private set; } // Coordenadas del objetivo actual
-        public int NumberOfDestinations => _zombies.Count + _treasures.Count; // Número total de destinos
+        
 
         private WorldInfo _worldInfo;
         private INavigationAlgorithm _navigationAlgorithm; // Para calcular las rutas
@@ -42,6 +42,7 @@ namespace grupoB
 
         private List<CellInfo> _zombies; // Lista de zombies en el mundo
         private List<CellInfo> _treasures; // Lista de cofres en el mundo
+        public int NumberOfDestinations => _zombies.Count + _treasures.Count; // Número total de destinos
 
         public void Initialize(WorldInfo worldInfo, INavigationAlgorithm navigationAlgorithm)
         {
@@ -75,7 +76,7 @@ namespace grupoB
             }
 
             // Si ya no hay más zombies ni cofres, dirigirse a la salida
-            if (NumberOfDestinations == 0 && _worldInfo.Exit != null)
+            /*if (NumberOfDestinations == 0 && _worldInfo.Exit != null)
             {
                 if (CurrentObjective != _worldInfo.Exit) // Solo actualizar si no estamos ya en la salida
                 {
@@ -83,7 +84,7 @@ namespace grupoB
                     _path = null; // Limpiar ruta para recalcular hacia la salida
                     Debug.Log("No hay más objetivos. Dirigiéndose a la salida.");
                 }
-            }
+            }*/
 
             // Recalcular la ruta si no existe o si se agotó al intentar alcanzar el objetivo
             if (_path == null || _path.Count == 0)
