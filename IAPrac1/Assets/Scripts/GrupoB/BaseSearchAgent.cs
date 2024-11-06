@@ -74,18 +74,6 @@ namespace grupoB
                 SetClosestObjective(currentPosition); // Establecer el nuevo objetivo más cercano
                 _path = null; // Limpiar la ruta para recalcularla
             }
-
-            // Si ya no hay más zombies ni cofres, dirigirse a la salida
-            /*if (NumberOfDestinations == 0 && _worldInfo.Exit != null)
-            {
-                if (CurrentObjective != _worldInfo.Exit) // Solo actualizar si no estamos ya en la salida
-                {
-                    CurrentObjective = _worldInfo.Exit; // Ir a la salida
-                    _path = null; // Limpiar ruta para recalcular hacia la salida
-                    Debug.Log("No hay más objetivos. Dirigiéndose a la salida.");
-                }
-            }*/
-
             // Recalcular la ruta si no existe o si se agotó al intentar alcanzar el objetivo
             if (_path == null || _path.Count == 0)
             {
@@ -194,12 +182,6 @@ namespace grupoB
 
             // Prioridad 3: Si no quedan ni zombies ni cofres, dirigirse a la salida
             CurrentObjective = closestObjective ?? _worldInfo.Exit;
-
-            // Log para debug cuando se dirige a la salida
-            if (CurrentObjective == _worldInfo.Exit)
-            {
-                Debug.Log("No hay más objetivos de interés. Dirigiéndose a la salida.");
-            }
         }
 
 
