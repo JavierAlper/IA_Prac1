@@ -63,7 +63,7 @@ namespace grupoB
             // Actualizar posición de los zombies en cada ciclo
             if (_zombies.Count > 0)
             {
-                UpdateZombiePositions();
+                UpdateZombiesList();
             }
 
             // Verificar si el agente alcanzó el objetivo actual
@@ -128,7 +128,7 @@ namespace grupoB
             SetClosestObjective(objective);  // Actualiza el objetivo más cercano tras la colisión
         }
 
-        private void UpdateZombiePositions()
+        private void UpdateZombiesList()
         {
             // Asegúrate de que _worldInfo y _worldInfo.Enemies no son null
             if (_worldInfo == null || _worldInfo.Enemies == null)
