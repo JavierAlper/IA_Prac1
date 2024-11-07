@@ -32,17 +32,16 @@ namespace grupoB
 {
     public class BaseSearchAgent : INavigationAgent
     {
-        public CellInfo CurrentObjective { get; private set; } // Objetivo actual
-        public Vector3 CurrentDestination { get; private set; } // Coordenadas del objetivo actual
-        
+        public CellInfo CurrentObjective { get; private set; }
+        public Vector3 CurrentDestination { get; private set; } //Para la ruta
 
         private WorldInfo _worldInfo;
-        private INavigationAlgorithm _navigationAlgorithm; // Para calcular las rutas
-        private Queue<CellInfo> _path; // Cola de ruta hasta el objetivo actual 
+        private INavigationAlgorithm _navigationAlgorithm;
+        private Queue<CellInfo> _path;
 
-        private List<CellInfo> _zombies; // Lista de zombies en el mundo
-        private List<CellInfo> _treasures; // Lista de cofres en el mundo
-        public int NumberOfDestinations => _zombies.Count + _treasures.Count; // Número total de destinos
+        private List<CellInfo> _zombies; //Lista de cofres
+        private List<CellInfo> _treasures; //Lista de tesoros
+        public int NumberOfDestinations => _zombies.Count + _treasures.Count;
 
         public void Initialize(WorldInfo worldInfo, INavigationAlgorithm navigationAlgorithm)
         {
@@ -50,46 +49,65 @@ namespace grupoB
             _navigationAlgorithm = navigationAlgorithm;
             _navigationAlgorithm.Initialize(worldInfo);
 
-            // Inicializar listas con los zombies y cofres del mundo
             _zombies = _worldInfo.Enemies.ToList();
             _treasures = _worldInfo.Targets.ToList();
-            SetClosestObjective(_worldInfo.FromVector3(Vector3.zero)); // Inicializar con el objetivo más cercano
+            //para que establezca el CurrentObjetive más cercano
+            SetClosestObjective(_worldInfo.FromVector3(Vector3.zero)); 
         }
 
         public Vector3? GetNextDestination(Vector3 position)
         {
             CellInfo currentPosition = _worldInfo.FromVector3(position);
 
-            // Actualizar posición de los zombies en cada ciclo
             if (_zombies.Count > 0)
             {
                 UpdateZombiesList();
             }
 
-            // Verificar si el agente alcanzó el objetivo actual
+            // Procesar colisiones con objetos en el camino al CurrentObjetive
+            HandleCollisions(currentPosition);
+
+            // Si alcanzó el objetivo actual se busca el siguiente objetivo más cercano
+            // y se iguala la ruta a null para recalcularla
             if (CurrentObjective != null && currentPosition == CurrentObjective)
             {
-                OnCollisionWithObjective(CurrentObjective); // Actualizar lista de objetivos alcanzados
-                                                            // Volver a evaluar el objetivo más cercano después de alcanzar uno
-                SetClosestObjective(currentPosition); // Establecer el nuevo objetivo más cercano
-                _path = null; // Limpiar la ruta para recalcularla
+                OnCollisionWithObjective(CurrentObjective);
+                SetClosestObjective(currentPosition);
+                _path = null;
             }
-            // Recalcular la ruta si no existe o si se agotó al intentar alcanzar el objetivo
+
+            // Recalcular la ruta al nuevo CurrentObjetive
             if (_path == null || _path.Count == 0)
             {
                 CellInfo[] path = _navigationAlgorithm.GetPath(currentPosition, CurrentObjective);
                 if (path == null) return null;
                 _path = new Queue<CellInfo>(path);
             }
-
-            // Asignar el siguiente punto en la ruta hacia el objetivo actual
+            // si la cola _path tiene elementos
+            // (si hay puntos pendientes en la ruta hacia el objetivo)
             if (_path.Count > 0)
             {
-                CellInfo destination = _path.Dequeue();
+                //el destino es el primer elemento de la cola
+                CellInfo destination = _path.Dequeue(); 
+                //(siguiente celda en la ruta del agente hacia el CurrenteObjetive)
                 CurrentDestination = _worldInfo.ToWorldPosition(destination);
             }
 
             return CurrentDestination;
+        }
+
+        private void HandleCollisions(CellInfo currentPosition)
+        {
+            // Si se encuentra con un objetivo aunque no sea el objetivo lo manejará
+            //Eliminandolo de la lista correspondiente
+            if (_zombies.Contains(currentPosition))
+            {
+                OnCollisionWithObjective(currentPosition);
+            }
+            else if (_treasures.Contains(currentPosition))
+            {
+                OnCollisionWithObjective(currentPosition);
+            }
         }
 
         public void OnCollisionWithObjective(CellInfo objective)
@@ -98,62 +116,45 @@ namespace grupoB
 
             if (_zombies.Contains(objective))
             {
-                // Remover el zombie alcanzado y marcarlo como inactivo
+                //Eliminar zombie de la lista
                 _zombies.Remove(objective);
-                objective.GameObject.SetActive(false);  // Desactiva el GameObject del zombie atrapado
                 Debug.Log($"Zombie {objective} atrapado.");
-
-                if (_zombies.Count == 0)
-                {
-                    Debug.Log("Todos los zombies han sido atrapados. Ahora buscando cofres.");
-                    SetClosestObjective(objective); // Cambiar el objetivo a los cofres más cercanos
-                }
             }
             else if (_treasures.Contains(objective))
             {
-                _treasures.Remove(objective); // Eliminar cofre alcanzado
+                //Eliminar cofre de la lista
+                _treasures.Remove(objective);
                 Debug.Log($"Cofre {objective} recogido.");
-
-                if (_treasures.Count == 0 && _zombies.Count == 0 && _worldInfo.Exit != null)
-                {
-                    CurrentObjective = _worldInfo.Exit;
-                    Debug.Log("No quedan zombies ni cofres. Dirigiéndose a la salida.");
-                }
             }
             else
             {
                 Debug.Log($"Objetivo no reconocido: {objective.Type}");
             }
-
-            SetClosestObjective(objective);  // Actualiza el objetivo más cercano tras la colisión
+            //Actualiza el objetivo al más cercano desde la posición actual
+            //(pos del objeto recien capturado)
+            SetClosestObjective(objective); 
         }
 
         private void UpdateZombiesList()
         {
-            // Asegúrate de que _worldInfo y _worldInfo.Enemies no son null
+            //Gestionar que ni worldInfo ni la lista de enemigos sea nula
             if (_worldInfo == null || _worldInfo.Enemies == null)
             {
-                Debug.LogError("WorldInfo or its Enemies property is null.");
                 return;
             }
-
-            // Filtrar enemigos que no sean null y que tengan un GameObject activo
+            //Filtrar enemigos que no sean null y que tenga un gameObject activo
             _zombies = _worldInfo.Enemies
                 .Where(enemy => enemy != null && enemy.GameObject != null && enemy.GameObject.activeSelf)
                 .ToList();
 
-            // Debug para verificar cuántos zombies quedan
             Debug.Log($"Zombies restantes: {_zombies.Count}");
         }
 
-
-        // Método para calcular el objetivo más cercano
         private void SetClosestObjective(CellInfo currentPosition)
         {
             float minDistance = float.MaxValue;
             CellInfo closestObjective = null;
-
-            // Prioridad 1: Si hay zombies, selecciona el más cercano
+            //Prioridad 1: si hay zombies, selecciona el más cercano
             if (_zombies.Count > 0)
             {
                 foreach (var zombie in _zombies)
@@ -166,7 +167,7 @@ namespace grupoB
                     }
                 }
             }
-            // Prioridad 2: Si no quedan zombies, busca el cofre más cercano
+            //Prioridad 2: Cuando no haya cofres pero si tesoros, selecciona el más cercano
             else if (_treasures.Count > 0)
             {
                 foreach (var treasure in _treasures)
@@ -179,13 +180,10 @@ namespace grupoB
                     }
                 }
             }
-
-            // Prioridad 3: Si no quedan ni zombies ni cofres, dirigirse a la salida
+            //Prioridad 3: no hay zombies ni tesoros objetivo = meta
             CurrentObjective = closestObjective ?? _worldInfo.Exit;
         }
 
-
-        // Método para calcular la distancia entre dos puntos
         private float CalculateEuclideanDistance(CellInfo a, CellInfo b)
         {
             return Mathf.Sqrt(Mathf.Pow(a.x - b.x, 2) + Mathf.Pow(a.y - b.y, 2));
