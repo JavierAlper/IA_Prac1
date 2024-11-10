@@ -1,0 +1,300 @@
+using System.Collections.Generic;
+using System.Linq;
+using Navigation.Interfaces;
+using Navigation.World;
+using UnityEngine;
+
+namespace grupoB
+{
+    public class BaseSearchAgent : INavigationAgent
+    {
+        public CellInfo CurrentObjective { get; private set; }
+        public Vector3 CurrentDestination { get; private set; } //Para la ruta
+
+        private WorldInfo _worldInfo;
+        private INavigationAlgorithm _navigationAlgorithm;
+        private Queue<CellInfo> _path;
+
+        private List<CellInfo> _zombies; //Lista de cofres
+        private List<CellInfo> _treasures; //Lista de tesoros
+        public int NumberOfDestinations => _zombies.Count + _treasures.Count;
+
+        public void Initialize(WorldInfo worldInfo, INavigationAlgorithm navigationAlgorithm)
+        {
+            _worldInfo = worldInfo;
+            _navigationAlgorithm = navigationAlgorithm;
+            _navigationAlgorithm.Initialize(worldInfo);
+
+            _zombies = _worldInfo.Enemies.ToList();
+            _treasures = _worldInfo.Targets.ToList();
+            //para que establezca el CurrentObjetive más cercano
+            SetClosestObjective(_worldInfo.FromVector3(Vector3.zero)); 
+        }
+
+        public Vector3? GetNextDestination(Vector3 position)
+        {
+            CellInfo currentPosition = _worldInfo.FromVector3(position);
+
+            if (_zombies.Count > 0)
+            {
+                UpdateZombiesList();
+            }
+
+            // Procesar colisiones con objetos en el camino al CurrentObjetive
+            HandleCollisions(currentPosition);
+
+            // Si alcanzó el objetivo actual se busca el siguiente objetivo más cercano
+            // y se iguala la ruta a null para recalcularla
+            if (CurrentObjective != null && currentPosition == CurrentObjective)
+            {
+                OnCollisionWithObjective(CurrentObjective);
+                SetClosestObjective(currentPosition);
+                _path = null;
+            }
+
+            // Recalcular la ruta al nuevo CurrentObjetive
+            if (_path == null || _path.Count == 0)
+            {
+                CellInfo[] path = _navigationAlgorithm.GetPath(currentPosition, CurrentObjective);
+                if (path == null) return null;
+                _path = new Queue<CellInfo>(path);
+            }
+            // si la cola _path tiene elementos
+            // (si hay puntos pendientes en la ruta hacia el objetivo)
+            if (_path.Count > 0)
+            {
+                //el destino es el primer elemento de la cola
+                CellInfo destination = _path.Dequeue(); 
+                //(siguiente celda en la ruta del agente hacia el CurrenteObjetive)
+                CurrentDestination = _worldInfo.ToWorldPosition(destination);
+            }
+
+            return CurrentDestination;
+        }
+
+        private void HandleCollisions(CellInfo currentPosition)
+        {
+            // Si se encuentra con un objetivo aunque no sea el objetivo lo manejará
+            //Eliminandolo de la lista correspondiente
+            if (_zombies.Contains(currentPosition))
+            {
+                OnCollisionWithObjective(currentPosition);
+            }
+            else if (_treasures.Contains(currentPosition))
+            {
+                OnCollisionWithObjective(currentPosition);
+            }
+        }
+
+        public void OnCollisionWithObjective(CellInfo objective)
+        {
+            Debug.Log($"Colisión detectada con: {objective}");
+
+            if (_zombies.Contains(objective))
+            {
+                //Eliminar zombie de la lista
+                _zombies.Remove(objective);
+                Debug.Log($"Zombie {objective} atrapado.");
+            }
+            else if (_treasures.Contains(objective))
+            {
+                //Eliminar cofre de la lista
+                _treasures.Remove(objective);
+                Debug.Log($"Cofre {objective} recogido.");
+            }
+            else
+            {
+                Debug.Log($"Objetivo no reconocido: {objective.Type}");
+            }
+            //Actualiza el objetivo al más cercano desde la posición actual
+            //(pos del objeto recien capturado)
+            SetClosestObjective(objective); 
+        }
+
+        private void UpdateZombiesList()
+        {
+            //Gestionar que ni worldInfo ni la lista de enemigos sea nula
+            if (_worldInfo == null || _worldInfo.Enemies == null)
+            {
+                return;
+            }
+            //Filtrar enemigos que no sean null y que tenga un gameObject activo
+            _zombies = _worldInfo.Enemies
+                .Where(enemy => enemy != null && enemy.GameObject != null && enemy.GameObject.activeSelf)
+                .ToList();
+
+            Debug.Log($"Zombies restantes: {_zombies.Count}");
+        }
+
+        private void SetClosestObjective(CellInfo currentPosition)
+        {
+            float minDistance = float.MaxValue;
+            CellInfo closestObjective = null;
+            //Prioridad 1: si hay zombies, selecciona el más cercano
+            if (_zombies.Count > 0)
+            {
+                foreach (var zombie in _zombies)
+                {
+                    float distance = CalculateEuclideanDistance(currentPosition, zombie);
+                    if (distance < minDistance)
+                    {
+                        minDistance = distance;
+                        closestObjective = zombie;
+                    }
+                }
+            }
+            //Prioridad 2: Cuando no haya cofres pero si tesoros, selecciona el más cercano
+            else if (_treasures.Count > 0)
+            {
+                foreach (var treasure in _treasures)
+                {
+                    float distance = CalculateEuclideanDistance(currentPosition, treasure);
+                    if (distance < minDistance)
+                    {
+                        minDistance = distance;
+                        closestObjective = treasure;
+                    }
+                }
+            }
+            //Prioridad 3: no hay zombies ni tesoros objetivo = meta
+            CurrentObjective = closestObjective ?? _worldInfo.Exit;
+        }
+
+        private float CalculateEuclideanDistance(CellInfo a, CellInfo b)
+        {
+            return Mathf.Sqrt(Mathf.Pow(a.x - b.x, 2) + Mathf.Pow(a.y - b.y, 2));
+        }
+    }
+}
+
+
+
+using Navigation.World;
+using System.Collections;
+using System.Collections.Generic;
+using UnityEngine;
+
+
+namespace grupoB
+{
+    public class Node
+    {
+        public CellInfo Cell { get; } //celda del nodo
+        public Node Parent { get; } //nodo padre de el actual en la ruta
+        public int GCost { get; } // Coste acumulado desde el inicio hasta este nodo
+        public int HCost { get; } // Heurística hasta el objetivo (distancia de Manhattan)
+        public int FCost => GCost + HCost; // GCost + HCost (coste total del nodo)
+
+        // Constructor para el nodo inicial
+        public Node(CellInfo cell, int gCost, int hCost)
+        {
+            Cell = cell;
+            GCost = gCost;
+            HCost = hCost;
+            Parent = null; //el inicial no tendrá nodo padre
+        }
+
+        // Constructor para demás nodos
+        public Node(CellInfo cell, int gCost, int hCost, Node parent)
+        {
+            Cell = cell;
+            GCost = gCost;
+            HCost = hCost;
+            Parent = parent;
+        }
+    }
+}
+
+
+
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using Navigation.Interfaces;
+using Navigation.World;
+using UnityEngine;
+
+
+namespace grupoB
+{
+    public class AStarAlgorithm : INavigationAlgorithm
+    {
+        private WorldInfo _worldInfo;
+
+        public void Initialize(WorldInfo worldInfo)
+        {
+            _worldInfo = worldInfo;
+        }
+
+        public CellInfo[] GetPath(CellInfo startNode, CellInfo targetNode)
+        {
+            var openList = new List<Node>(); // Lista abierta de nodos pendientes por visitar
+            var closedList = new HashSet<CellInfo>(); // Lista cerrada de nodos ya visitados
+
+            // Nodo inicial con coste inicial y heurística
+            Node start = new Node(startNode, 0, ManhattanDistance(startNode, targetNode));
+            openList.Add(start);
+
+            while (openList.Count > 0)//mientras haya nodos por explorar itera
+            {
+                openList.Sort((a, b) => a.FCost.CompareTo(b.FCost)); //ordena por coste F menor
+                Node currentNode = openList[0]; // cge el nodo con F menor
+                openList.RemoveAt(0); // lo quita de la lista
+
+                if (currentNode.Cell == targetNode) //si se ha alcanzado el objetivo, devuelve ruta
+                    return ReconstructPath(currentNode);
+
+                closedList.Add(currentNode.Cell); //y añadimos el nodo a la lista de nodos visitados
+
+                foreach (var neighbor in GetNeighbors(currentNode.Cell)) //obtiene los nodos vecinos de la celda
+                {
+                    if (closedList.Contains(neighbor) || !neighbor.Walkable) continue; //ignorar celdas visitadas o inaccesibles
+
+                    int tentativeGCost = currentNode.GCost + 1; //coste a cada casilla vecina es uno
+                    int hCost = ManhattanDistance(neighbor, targetNode);// heuristuca hasta el objetivo
+                    Node neighborNode = new Node(neighbor, tentativeGCost, hCost, currentNode); //crea el nodo vecino
+
+                    if (openList.Exists(n => n.Cell == neighbor && tentativeGCost >= n.GCost)) continue; // Ignora si el vecino ya tiene menor G
+
+                    openList.Add(neighborNode); // Añade el vecino a la lista
+                }
+            }
+
+            return null; // Ruta no encontrada
+        }
+
+        private int ManhattanDistance(CellInfo a, CellInfo b)
+        {
+            return Mathf.Abs(a.x - b.x) + Mathf.Abs(a.y - b.y);
+        }
+
+        // Reconstruye la ruta desde el nodo final hasta el nodo inicial usando nodos padres
+        private CellInfo[] ReconstructPath(Node currentNode)
+        {
+            var path = new List<CellInfo>();
+            while (currentNode != null)// Recorre los nodos padres desde el nodo final
+            {
+                path.Add(currentNode.Cell);// Añade la celda del nodo actual a la ruta
+                currentNode = currentNode.Parent;// Avanza al nodo padre
+            }
+            path.Reverse();// Invierte la ruta para que vaya del inicio al final
+            return path.ToArray();// Devuelve la ruta como un array
+        }
+
+        // Devuelve los vecinos 
+        private IEnumerable<CellInfo> GetNeighbors(CellInfo cell)
+        {
+            int x = cell.x;
+            int y = cell.y;
+            List<CellInfo> neighbors = new List<CellInfo>();
+
+            // Vecinos (arriba, abajo, izquierda, derecha)
+            if (x > 0) neighbors.Add(_worldInfo[x - 1, y]);
+            if (x < _worldInfo.WorldSize.x - 1) neighbors.Add(_worldInfo[x + 1, y]);
+            if (y > 0) neighbors.Add(_worldInfo[x, y - 1]);
+            if (y < _worldInfo.WorldSize.y - 1) neighbors.Add(_worldInfo[x, y + 1]);
+
+            return neighbors;
+        }
+    }
+}
